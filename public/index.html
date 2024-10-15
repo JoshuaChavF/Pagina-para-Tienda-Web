@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventario y Ventas</title>
+    <link rel="stylesheet" href="styles.css"> 
+</head>
+<body>
+    <h1>Control de Inventarios y Ventas</h1>
+
+    <!-- Botones de acción -->
+    <button onclick="window.location.href='ventas.html'">Ventas diarias</button>
+    <button onclick="window.location.href='inventario.html'">Registrar Inventario</button>
+
+    <!-- Fecha del ordenador -->
+    <p id="fecha-actual"></p>
+
+    <script>
+        // Mostrar la fecha actual del ordenador
+        const fecha = new Date();
+        document.getElementById('fecha-actual').innerText = 'Fecha: ' + fecha.toLocaleDateString();
+    </script>
+</body>
+</html>

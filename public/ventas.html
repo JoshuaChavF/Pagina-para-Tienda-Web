@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ventas Diarias</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Estilos para el mensaje emergente */
+        #mensaje-emergente {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            border: 1px solid #ccc;
+            padding: 20px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+
+        #mensaje-emergente h2 {
+            margin-top: 0;
+        }
+
+        #mensaje-emergente button {
+            margin-top: 10px;
+        }
+
+        /* Estilos opcionales para el fondo en gris cuando aparece el mensaje */
+        #fondo-blur {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Ventas Diarias</h1>
+
+    <button onclick="window.location.href='index.html'">Volver al inicio</button>
+
+    <!-- Fecha del ordenador -->
+    <p id="fecha-actual"></p>
+
+    <!-- Tabla de ventas diarias -->
+    <h2>Ventas diarias</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Cantidad</th>
+                <th>Producto</th>
+                <th>Precio</th>
+                <th>Descuento (%)</th>
+                <th>Precio Final</th>
+                <th>Efectivo</th>
+                <th>SINPE</th>
+                <th>Tarjeta</th>
+            </tr>
+        </thead>
+        <tbody id="tabla-ventas">
+            <!-- Fila inicial -->
+        </tbody>
+    </table>
+
+    <button id="btn-agregar-fila">Agregar Producto</button>
+
+    <!-- Total del día -->
+    <h2>Total del día</h2>
+    <p>Precio Final: <span id="total-precio-final">0</span></p>
+    <p>Efectivo: <span id="total-efectivo">0</span></p>
+    <p>SINPE: <span id="total-sinpe">0</span></p>
+    <p>Tarjeta: <span id="total-tarjeta">0</span></p>
+
+    <!-- Botón para guardar -->
+    <button id="btn-guardar">Guardar Ventas del Día</button>
+
+    <!-- Datalist de productos -->
+    <datalist id="lista-productos"></datalist>
+
+    <!-- Mensaje emergente -->
+    <div id="fondo-blur"></div>
+    <div id="mensaje-emergente">
+        <h2>Resumen del Día</h2>
+        <p id="mensaje-fecha"></p>
+        <p id="mensaje-precio-final"></p>
+        <p id="mensaje-efectivo"></p>
+        <p id="mensaje-sinpe"></p>
+        <p id="mensaje-tarjeta"></p>
+        <button onclick="cerrarMensaje()">Cerrar</button>
+    </div>
+
+    <script>
+        // Mostrar la fecha actual del ordenador
+        const fecha = new Date();
+        document.getElementById('fecha-actual').innerText = 'Fecha: ' + fecha.toLocaleDateString();
+
+        // Almacenar productos en una variable global
+        let productos = [];
+
+        // Función para buscar productos por nombre
+        function buscarProducto(nombreProducto) {
+            return productos.find(producto => producto.nombre.toLowerCase() === nombreProducto.toLowerCase());
+        }
+
+        // Función para cargar productos desde el servidor y llenar el datalist
+        function cargarProductos() {
+            fetch('/productos')
+                .then(response => response.json())
+                .then(data => {
+                    productos = data;
+
+                    // Llenar la lista de productos en el datalist
+                    const listaProductos = document.getElementById('lista-productos');
+                    listaProductos.innerHTML = '';
+
+                    productos.forEach(producto => {
+                        const option = document.createElement('option');
+                        option.value = producto.nombre;
+                        listaProductos.appendChild(option);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error al cargar los productos:', error);
+                });
+        }
+
+        // Cargar ventas guardadas en localStorage
+        function cargarVentasGuardadas() {
+            const ventasGuardadas = JSON.parse(localStorage.getItem('ventasDiarias')) || [];
+            ventasGuardadas.forEach(venta => agregarFilaVenta(venta));
+            actualizarTotales();
+        }
+
+        // Guardar ventas en localStorage
+        function guardarVentasLocalStorage() {
+            const ventas = [];
+
+            document.querySelectorAll('.fila-venta').forEach(fila => {
+                const venta = {
+                    cantidad: fila.querySelector('.cantidad').value,
+                    producto: fila.querySelector('.producto').value,
+                    precio: fila.querySelector('.precio').value,
+                    descuento: fila.querySelector('.descuento').value,
+                    efectivo: fila.querySelector('.efectivo').checked,
+                    sinpe: fila.querySelector('.sinpe').checked,
+                    tarjeta: fila.querySelector('.tarjeta').checked,
+                };
+                ventas.push(venta);
+            });
+
+            localStorage.setItem('ventasDiarias', JSON.stringify(ventas));
+        }
+
+        // Función para actualizar los totales de la venta
+        function actualizarTotales() {
+            let totalPrecioFinal = 0;
+            let totalEfectivo = 0;
+            let totalSINPE = 0;
+            let totalTarjeta = 0;
+
+            document.querySelectorAll('.fila-venta').forEach(fila => {
+                const cantidad = parseFloat(fila.querySelector('.cantidad').value) || 0;
+                const precio = parseFloat(fila.querySelector('.precio').value) || 0;
+                const descuento = parseFloat(fila.querySelector('.descuento').value) || 0;
+                const precioFinal = cantidad * precio * (1 - descuento / 100);
+
+                fila.querySelector('.precio-final').innerText = precioFinal.toFixed(2);
+                totalPrecioFinal += precioFinal;
+
+                if (fila.querySelector('.efectivo').checked) totalEfectivo += precioFinal;
+                if (fila.querySelector('.sinpe').checked) totalSINPE += precioFinal;
+                if (fila.querySelector('.tarjeta').checked) totalTarjeta += precioFinal;
+            });
+
+            document.getElementById('total-precio-final').innerText = totalPrecioFinal.toFixed(2);
+            document.getElementById('total-efectivo').innerText = totalEfectivo.toFixed(2);
+            document.getElementById('total-sinpe').innerText = totalSINPE.toFixed(2);
+            document.getElementById('total-tarjeta').innerText = totalTarjeta.toFixed(2);
+        }
+
+        // Configurar los checkboxes para los métodos de pago
+        function configurarCheckboxes(fila) {
+            const efectivo = fila.querySelector('.efectivo');
+            const sinpe = fila.querySelector('.sinpe');
+            const tarjeta = fila.querySelector('.tarjeta');
+
+            efectivo.addEventListener('change', () => {
+                if (efectivo.checked) {
+                    sinpe.checked = false;
+                    tarjeta.checked = false;
+                }
+                actualizarTotales();
+            });
+
+            sinpe.addEventListener('change', () => {
+                if (sinpe.checked) {
+                    efectivo.checked = false;
+                    tarjeta.checked = false;
+                }
+                actualizarTotales();
+            });
+
+            tarjeta.addEventListener('change', () => {
+                if (tarjeta.checked) {
+                    efectivo.checked = false;
+                    sinpe.checked = false;
+                }
+                actualizarTotales();
+            });
+        }
+
+        // Función para agregar una fila de venta
+        function agregarFilaVenta(venta = {}) {
+            const nuevaFila = document.createElement('tr');
+            nuevaFila.classList.add('fila-venta');
+            nuevaFila.innerHTML = `
+                <td><input type="number" class="cantidad" value="${venta.cantidad || 1}" min="1"></td>
+                <td>
+                    <input type="text" class="producto" value="${venta.producto || ''}" list="lista-productos">
+                </td>
+                <td><input type="number" class="precio" value="${venta.precio || 0}" min="0"></td>
+                <td><input type="number" class="descuento" value="${venta.descuento || 0}" min="0" max="100"></td>
+                <td><span class="precio-final">0</span></td>
+                <td><input type="checkbox" class="efectivo" ${venta.efectivo ? 'checked' : ''}></td>
+                <td><input type="checkbox" class="sinpe" ${venta.sinpe ? 'checked' : ''}></td>
+                <td><input type="checkbox" class="tarjeta" ${venta.tarjeta ? 'checked' : ''}></td>
+            `;
+            document.getElementById('tabla-ventas').appendChild(nuevaFila);
+
+            // Cuando se cambie el producto, actualizar el precio
+            const inputProducto = nuevaFila.querySelector('.producto');
+            inputProducto.addEventListener('input', () => {
+                const productoSeleccionado = buscarProducto(inputProducto.value);
+                if (productoSeleccionado) {
+                    nuevaFila.querySelector('.precio').value = productoSeleccionado.precio;
+                } else {
+                    nuevaFila.querySelector('.precio').value = 0; // Si no encuentra el producto, el precio es 0
+                }
+                actualizarTotales();
+            });
+
+            configurarCheckboxes(nuevaFila);
+            actualizarTotales();
+        }
+
+        // Función para mostrar el mensaje emergente
+        function mostrarMensaje() {
+            document.getElementById('mensaje-fecha').innerText = 'Fecha: ' + fecha.toLocaleDateString();
+            document.getElementById('mensaje-precio-final').innerText = 'Precio Final: ' + document.getElementById('total-precio-final').innerText;
+            document.getElementById('mensaje-efectivo').innerText = 'Efectivo: ' + document.getElementById('total-efectivo').innerText;
+            document.getElementById('mensaje-sinpe').innerText = 'SINPE: ' + document.getElementById('total-sinpe').innerText;
+            document.getElementById('mensaje-tarjeta').innerText = 'Tarjeta: ' + document.getElementById('total-tarjeta').innerText;
+
+            document.getElementById('fondo-blur').style.display = 'block';
+            document.getElementById('mensaje-emergente').style.display = 'block';
+        }
+
+        // Función para cerrar el mensaje emergente
+        function cerrarMensaje() {
+            document.getElementById('fondo-blur').style.display = 'none';
+            document.getElementById('mensaje-emergente').style.display = 'none';
+        }
+
+        // Cargar productos y ventas guardadas al cargar la página
+        cargarProductos();
+        cargarVentasGuardadas();
+
+        // Agregar una nueva fila de producto
+        document.getElementById('btn-agregar-fila').addEventListener('click', () => {
+            agregarFilaVenta();
+            guardarVentasLocalStorage(); // Guardar en localStorage cuando se agrega una fila
+        });
+
+        // Escuchar cambios en la tabla para guardar automáticamente en localStorage
+        document.getElementById('tabla-ventas').addEventListener('input', () => {
+            guardarVentasLocalStorage();
+        });
+
+        // Guardar las ventas y limpiar el formulario
+document.getElementById('btn-guardar').addEventListener('click', () => {
+    // Mostrar el mensaje emergente
+    mostrarMensaje();
+
+    // Obtener la fecha en formato YYYY-MM-DD
+    const fechaFormateada = fecha.toISOString().split('T')[0];
+
+    // Guardar las ventas en la base de datos
+    fetch('/guardar-ventas', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            fecha: fechaFormateada,
+            totalPrecioFinal: parseFloat(document.getElementById('total-precio-final').innerText) || 0,
+            totalEfectivo: parseFloat(document.getElementById('total-efectivo').innerText) || 0,
+            totalSINPE: parseFloat(document.getElementById('total-sinpe').innerText) || 0,
+            totalTarjeta: parseFloat(document.getElementById('total-tarjeta').innerText) || 0
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Ventas guardadas en la base de datos:', data);
+        // Limpiar la tabla de ventas y reiniciar totales
+        document.getElementById('tabla-ventas').innerHTML = '';
+        agregarFilaVenta(); // Agregar una nueva fila vacía
+        actualizarTotales(); // Reiniciar los totales
+    })
+    .catch(error => {
+        console.error('Error al guardar las ventas:', error);
+    });
+});
+    </script>
+</body>
+
+</html>

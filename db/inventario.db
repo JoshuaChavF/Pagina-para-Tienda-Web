@@ -1,0 +1,8 @@
+CREATE TABLE productos (
+    codigo TEXT PRIMARY KEY,
+    cantidad INTEGER,
+    nombre TEXT,
+    precio REAL,
+    tienda INTEGER,
+    bodega INTEGER
+);
